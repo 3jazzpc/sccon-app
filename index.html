@@ -346,6 +346,13 @@ function el(tag, props, ...kids){
 function splitTypeName(name){ const m = String(name).match(/^(der|die|das)\s+(.+)$/i); return m ? { art:m[1], main:m[2] } : { art:'', main:String(name) }; }
 const shy = s => s.replace(/(visionär|entdecker|denker|gestalter|typ)((?::|\*)in(?:nen)?)?$/i, '\u00AD$1$2');
 
+/* Firestore erlaubt keine verschachtelten Arrays: Muster werden flach gespeichert */
+function unflatPattern(p){
+  if(!Array.isArray(p)) return [];
+  if(!p.length || Array.isArray(p[0])) return p;
+  const out = []; for(let i = 0; i + 2 < p.length; i += 3) out.push([p[i], p[i+1], p[i+2]]); return out;
+}
+const forStore = c => Object.assign({}, c, { types: c.types.map(t => Object.assign({}, t, { pattern: [].concat(...t.pattern) })) });
 function normalize(raw){
   const d = clone(DEFAULT_CONFIG);
   if(!raw || typeof raw !== 'object') return d;
@@ -373,7 +380,7 @@ function normalize(raw){
     id: String(t.id || ('typ'+i)).replace(/[^A-Za-z0-9_-]/g,'') || ('typ'+i),
     name: String(t.name), description: String(t.description || ''),
     color: PALETTE.includes(t.color) ? t.color : PALETTE[i % 4],
-    pattern: (Array.isArray(t.pattern) ? t.pattern : []).filter(p => Array.isArray(p) && p.length >= 2).map(p => { const w = +p[2]; return [p[0]|0, p[1]|0, w >= 0.5 && w <= 3 ? w : 1]; })
+    pattern: unflatPattern(t.pattern).filter(p => Array.isArray(p) && p.length >= 2).map(p => { const w = +p[2]; return [p[0]|0, p[1]|0, w >= 0.5 && w <= 3 ? w : 1]; })
   }));
   ['event','title','intro','cta','stickerText'].forEach(k => { c[k] = String(c[k] == null ? d[k] : c[k]); });
   c.round = String(c.round || 'r1').replace(/[^A-Za-z0-9_-]/g,'') || 'r1';
@@ -979,7 +986,7 @@ function AdminView(root){
     const c = normalize(config), now = Date.now();
     c.history = (c.history || []).concat([{ round: c.round, started: c.roundStarted || 0, ended: now }]).slice(-20);
     c.round = newRoundId(); c.roundStarted = now;
-    await db.doc('config/survey').set(c);
+    await db.doc('config/survey').set(forStore(c));
     return 'Neue Runde läuft.';
   }
   async function makeTestData(status){
@@ -1148,7 +1155,7 @@ function AdminView(root){
     } else { out.round = config.round; out.roundStarted = config.roundStarted; out.history = config.history; }
     saveBtn.disabled = true;
     try{
-      await db.doc('config/survey').set(out);
+      await db.doc('config/survey').set(forStore(out));
       dirty = false; pendingStructConfirm = false; saveBtn.textContent = 'Änderungen speichern';
       alertMsg('Gespeichert. Terminals und Screen übernehmen die Änderungen automatisch.');
     }catch(e){ alertMsg('Speichern fehlgeschlagen' + (e && e.code === 'invalid_argument' ? ': Dieses Konto hat keine Bearbeitungsrechte.' : '.')); }
