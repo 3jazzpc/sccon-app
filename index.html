@@ -1,0 +1,1241 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Wem gehört die Zukunft? – Live-Umfrage</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+:root{
+  --bg:#E8DF56; --ink:#1C1C1C; --blue:#1418F1; --pink:#E8A2CD; --orange:#EB6F44; --green:#5FC898; --sky:#AADBDC;
+  --paper:#F6F1CF; --muted:#55502F;
+  color-scheme:light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+/* Kampagnen-Look: in beiden Viewer-Themes bewusst identisch */
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --ink:#1C1C1C; --muted:#55502F; } }
+:root[data-theme="dark"]{ --ink:#1C1C1C; --muted:#55502F; }
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font-family:'Archivo','Helvetica Neue',Arial,sans-serif;font-size:18px;line-height:1.45;overflow:hidden;-webkit-font-smoothing:antialiased}
+#app{position:relative;height:100%}
+#fsBtn{position:fixed;right:max(12px,env(safe-area-inset-right,0px));bottom:max(12px,env(safe-area-inset-bottom,0px));z-index:60;width:44px;height:44px;border:0;border-radius:50%;background:rgba(28,28,28,.55);color:#fff;cursor:pointer;display:none;align-items:center;justify-content:center;padding:0;-webkit-tap-highlight-color:transparent}
+#fsBtn:hover{background:rgba(28,28,28,.8)}
+#fsBtn svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+#corner{position:fixed;top:0;left:0;width:84px;height:84px;z-index:60}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:3px solid var(--blue);outline-offset:3px}
+img{max-width:100%}
+
+/* Farbflächen */
+.c-blue{--c:var(--blue);--on:#fff}
+.c-pink{--c:var(--pink);--on:var(--ink)}
+.c-orange{--c:var(--orange);--on:var(--ink)}
+.c-green{--c:var(--green);--on:var(--ink)}
+.c-sky{--c:var(--sky);--on:var(--ink)}
+
+/* Headline aus Farbblöcken, wie auf Plakat und Roll-up */
+.hl{font-weight:800;text-transform:uppercase;letter-spacing:-.01em;line-height:.92;margin:0}
+.hl-w{display:inline-block;background:var(--c);color:var(--on);padding:.07em .16em .02em;transform:rotate(var(--r,0deg))}
+.hl.stack{display:flex;flex-direction:column;align-items:flex-start}
+.hl.stack .hl-w{margin-top:-.05em}
+.hl.stack .hl-w:nth-child(2){margin-left:.06em}
+.hl.stack .hl-w:nth-child(4){margin-left:.03em}
+.hl.row{display:flex;flex-wrap:wrap;gap:.1em .14em;align-items:center}
+
+.brand{display:flex;align-items:center;min-height:40px}
+.brand img{max-height:56px;width:auto;display:block}
+.wordmark{font-weight:800;font-size:30px;letter-spacing:-.02em}
+
+/* Sticker „Jetzt mitmachen!“ */
+.sticker{position:relative;width:var(--s);height:var(--s);flex:none}
+.sticker svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.sticker text{font-family:'Archivo',Arial,sans-serif;font-weight:700;font-size:17px;fill:var(--ink)}
+.sticker .ring{transform-box:view-box;transform-origin:100px 100px;animation:spin 28s linear infinite}
+.st-in{position:absolute;inset:15%;border-radius:50%;background:var(--ink);color:#fff;display:flex;align-items:center;justify-content:center;text-align:center;font-weight:700;font-size:calc(var(--s) * .078);line-height:1.18;padding:10%}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.btn-primary{background:var(--ink);color:#fff;border:0;border-radius:999px;padding:22px 52px;font-size:26px;font-weight:800}
+.btn-primary:active{transform:scale(.98)}
+.btn-secondary{background:transparent;border:3px solid var(--ink);border-radius:999px;padding:11px 24px;font-weight:700}
+.btn-ghost{background:none;border:0;padding:12px 6px;color:var(--ink);font-weight:600;text-decoration:underline;text-underline-offset:3px}
+.btn-ghost.sm,.btn-secondary.sm{font-size:15px;padding:8px 14px}
+.btn-danger{background:#C2271D;border:0;border-radius:999px;padding:10px 20px;font-weight:700;color:#fff}
+.danger{color:#A31F16}
+button:disabled{opacity:.5;cursor:default}
+.muted{color:var(--muted)}
+
+/* ---------- Terminal ---------- */
+.term{height:100%;overflow-y:auto;padding:clamp(20px,4vw,56px);display:flex;flex-direction:column;user-select:none;-webkit-user-select:none;touch-action:manipulation;position:relative}
+.term input,.term textarea{user-select:text;-webkit-user-select:text}
+.status-dot{position:absolute;top:16px;right:16px;width:10px;height:10px;border-radius:50%;background:#2E9A5E;opacity:.75}
+.status-dot.wait{background:var(--orange)}
+.status-dot.off{background:#C2271D}
+.t-top{display:flex;justify-content:flex-end}
+.t-start{flex:1;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:clamp(24px,4vw,64px);align-items:center}
+.t-start .sticker{--s:clamp(220px,28vw,380px);cursor:pointer}
+@media (max-width:820px),(orientation:portrait){.t-start{grid-template-columns:1fr;align-content:center}.t-start .sticker{--s:clamp(200px,44vw,300px);justify-self:end}}
+.t-title{font-size:clamp(50px,min(8.6vw,10.8vh),150px)}
+.t-intro{font-size:clamp(20px,2.2vw,27px);font-weight:500;max-width:34ch;margin:clamp(24px,3.5vh,40px) 0}
+.t-q{flex:1;display:flex;flex-direction:column;width:100%;max-width:1100px;margin:0 auto}
+.t-progress{display:flex;gap:8px}
+.t-progress span{flex:1;height:7px;background:rgba(28,28,28,.16);transition:background .3s}
+.t-progress .done{background:var(--ink)}
+.t-progress .now{background:var(--blue)}
+.t-count{margin-top:28px;font-size:19px;font-weight:600}
+.t-question{font-size:clamp(30px,4.3vw,54px);font-weight:800;line-height:1.1;letter-spacing:-.01em;margin:10px 0 clamp(28px,4vw,48px);text-wrap:balance}
+.t-options{display:grid;gap:18px}
+.opt{display:block;width:100%;text-align:left;min-height:104px;padding:24px 32px;font-size:clamp(21px,2.4vw,30px);font-weight:600;line-height:1.25;border:3px solid var(--ink);background:rgba(255,255,255,.55);color:var(--ink);transition:background .15s,color .15s,border-color .15s}
+.opt:active,.opt.chosen{background:var(--blue);border-color:var(--blue);color:#fff}
+.t-foot{margin-top:auto;padding-top:28px;display:flex;justify-content:space-between;align-items:center}
+
+.t-res{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(300px,.65fr);gap:clamp(28px,4vw,64px);align-items:start;width:100%;max-width:1400px;margin:0 auto}
+@media (max-width:900px){.t-res{grid-template-columns:1fr}}
+.res-kicker{font-size:20px;font-weight:600;margin:0 0 14px}
+.res-type{font-size:clamp(46px,6.4vw,96px);font-weight:850;text-transform:uppercase;line-height:1.12;margin:0;letter-spacing:-.01em;hyphens:manual}
+.hi{background:var(--c);color:var(--on);box-decoration-break:clone;-webkit-box-decoration-break:clone;padding:0 .12em}
+.res-desc{font-size:clamp(19px,1.9vw,24px);font-weight:500;max-width:40ch;margin:24px 0 8px}
+.res-share{font-size:19px;font-weight:700;margin:0 0 30px}
+.cmp{list-style:none;margin:0;padding:0;display:grid;gap:14px;max-width:780px}
+.cmp li{display:grid;grid-template-columns:1fr auto;column-gap:16px;row-gap:5px;align-items:baseline}
+.cmp-q{grid-column:1/-1;color:var(--muted);font-size:15px;line-height:1.3}
+.cmp-a{font-size:19px;font-weight:700}
+.cmp-p{font-size:17px;font-weight:700;white-space:nowrap}
+.cmp-bar{grid-column:1/-1;height:6px;background:rgba(28,28,28,.14);overflow:hidden}
+.cmp-bar i{display:block;height:100%;background:var(--ink);transition:width 1s cubic-bezier(.2,.8,.2,1)}
+.res-foot{margin-top:34px}
+.mail{background:var(--paper);border:3px solid var(--ink);padding:28px}
+.mail h3{margin:0 0 10px;font-size:28px;font-weight:800;letter-spacing:-.01em;line-height:1.1}
+.mail p{margin:0 0 16px}
+.mail-form{display:grid;gap:12px}
+.mail-form label.lbl{font-weight:700;font-size:16px}
+.mail-form input[type=email]{width:100%;font:inherit;font-size:20px;padding:14px 16px;border:3px solid var(--ink);background:#fff;color:var(--ink);border-radius:0}
+.mail-check{display:flex;gap:12px;align-items:flex-start;font-size:14px;line-height:1.35}
+.mail-check input{width:24px;height:24px;flex:none;accent-color:var(--blue)}
+.mail-msg{font-size:15px;color:#A31F16;margin:0 !important;min-height:1em}
+.mail-ok{font-weight:700;font-size:19px}
+.mail-note{font-size:12.5px;line-height:1.4;color:var(--muted);margin:18px 0 0 !important}
+.qr{background:#fff;padding:12px;width:max-content;margin-top:22px}
+.qr img,.qr canvas{display:block;width:170px;height:170px}
+.qr-hint{font-size:14px;margin:8px 0 0 !important}
+
+/* ---------- Großer Screen ---------- */
+.screen-root{height:100%;overflow:hidden;background:var(--bg)}
+.screen-root.idle{cursor:none}
+.stage{position:fixed;left:50%;top:50%;width:1920px;height:1080px;transform-origin:center center;overflow:hidden}
+.s-top{position:absolute;left:72px;right:72px;top:56px;display:flex;justify-content:space-between;align-items:flex-start}
+.s-hl{font-size:60px}
+.s-brand .wordmark{font-size:48px}
+.s-brand img{max-height:76px}
+.s-foot{position:absolute;left:72px;bottom:54px;font-size:32px;font-weight:700}
+.s-sticker{position:absolute;right:66px;bottom:46px}
+.s-sticker .sticker{--s:300px}
+.scene{position:absolute;left:72px;right:72px;top:200px;bottom:140px}
+.ov-grid{display:grid;grid-template-columns:1fr 1fr;grid-auto-rows:1fr;gap:46px 64px;width:1420px;height:100%}
+.tile-wrap{transform:scale(var(--sc,1));transition:transform 1.4s cubic-bezier(.2,.8,.2,1);min-height:0}
+.tile{width:100%;height:100%;background:var(--c);color:var(--on);padding:26px 36px 22px;display:grid;grid-template-rows:auto 1fr auto;transform:rotate(var(--r))}
+.t-der{font-size:30px;font-weight:700;text-transform:uppercase}
+.t-name{font-size:64px;font-weight:850;text-transform:uppercase;line-height:.95;letter-spacing:-.01em;hyphens:manual;overflow:hidden}
+.t-pct{justify-self:end;font-size:124px;font-weight:850;line-height:.86;font-variant-numeric:tabular-nums}
+.bump{animation:bump .9s cubic-bezier(.2,.9,.3,1.4)}
+@keyframes bump{30%{transform:scale(1.25)}}
+.sp{display:grid;grid-template-columns:minmax(0,1fr) 520px;gap:40px;align-items:start;height:100%;padding-top:30px}
+.sp-left{min-width:0}
+.sp-der{font-size:58px;font-weight:850;text-transform:uppercase;margin-bottom:10px;display:inline-block}
+.sp-name{font-size:120px;font-weight:850;text-transform:uppercase;line-height:1.08;letter-spacing:-.015em;hyphens:manual}
+.sp-desc{font-size:32px;font-weight:500;line-height:1.32;max-width:44ch;margin:34px 0 0}
+.sp-right{display:flex;justify-content:center;padding-top:10px}
+.sp-circle{width:430px;height:430px;border-radius:50%;background:var(--c);color:var(--on);display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative}
+.sp-circle::before,.sp-circle::after{content:'';position:absolute;inset:0;border-radius:50%;border:7px solid var(--c);animation:ring 2.6s ease-out infinite}
+.sp-circle::after{animation-delay:1.3s}
+@keyframes ring{from{transform:scale(1);opacity:.9}to{transform:scale(1.5);opacity:0}}
+.sp-pct{font-size:168px;font-weight:850;line-height:.9;font-variant-numeric:tabular-nums}
+.sp-sub{font-size:28px;font-weight:700;margin-top:10px;text-align:center;max-width:12em}
+/* Auftritte */
+.scene.in .anim{animation:blkIn .85s cubic-bezier(.2,.9,.3,1.25) calc(.4s + var(--i,0) * .11s) both}
+.scene.in .tile{animation:blkIn .85s cubic-bezier(.2,.9,.3,1.25) calc(.4s + var(--i,0) * .11s) both, breathe 2.8s ease-in-out calc(1.6s + var(--i,0) * .45s) infinite}
+.scene.in .sp-name{animation:blkIn .85s cubic-bezier(.2,.9,.3,1.25) .5s both, breathe 3s ease-in-out 1.6s infinite}
+.scene.out{animation:sceneOut .6s ease-in forwards}
+@keyframes blkIn{from{opacity:0;transform:translateY(90px) rotate(calc(var(--r,0deg) - 8deg)) scale(.7)}to{opacity:1;transform:translateY(0) rotate(var(--r,0deg)) scale(1)}}
+@keyframes breathe{0%,100%{transform:rotate(var(--r,0deg)) scale(1)}50%{transform:rotate(var(--r,0deg)) scale(1.035)}}
+@keyframes sceneOut{to{opacity:0;transform:translateY(-50px) scale(.95)}}
+.pops{position:absolute;inset:0;pointer-events:none}
+.pop{position:absolute;left:var(--x);bottom:150px;background:var(--c);color:var(--on);font-weight:800;font-size:34px;padding:12px 24px;white-space:nowrap;opacity:0;animation:pop 3.3s ease-out both}
+.pop b{font-size:46px;margin-right:6px}
+@keyframes pop{0%{opacity:0;transform:translateY(40px) scale(.5) rotate(var(--r))}12%{opacity:1;transform:translateY(0) scale(1.1) rotate(var(--r))}20%{transform:translateY(-20px) scale(1) rotate(var(--r))}80%{opacity:1;transform:translateY(-280px) scale(1) rotate(var(--r))}100%{opacity:0;transform:translateY(-340px) scale(.9) rotate(var(--r))}}
+.s-notice{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#C2271D;color:#fff;padding:10px 22px;border-radius:999px;font-size:16px;z-index:5}
+
+/* ---------- Gerätewahl & Admin ---------- */
+.scroll{height:100%;overflow-y:auto}
+.picker{max-width:1100px;margin:0 auto;padding:clamp(28px,6vw,80px) 24px 80px}
+.p-title{font-size:clamp(52px,7vw,96px);margin:40px 0 20px}
+.p-lead{font-size:21px;font-weight:500;max-width:44ch;margin:0 0 40px}
+.p-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px}
+.p-card{text-align:left;background:rgba(255,255,255,.5);border:3px solid var(--ink);padding:28px;min-height:180px;display:flex;flex-direction:column;gap:10px}
+.p-card strong{font-size:30px;font-weight:850;letter-spacing:-.01em}
+.p-card:disabled strong{color:var(--muted)}
+.p-note{margin-top:32px;font-size:16px;max-width:60ch}
+
+.admin{max-width:1060px;margin:0 auto;padding:36px 24px 150px}
+.a-head{display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap}
+.a-title{font-size:72px;margin:28px 0 8px}
+.a-sec{background:rgba(255,255,255,.55);border:2px solid var(--ink);padding:26px 28px;margin-top:22px}
+.a-sec h2{margin:0 0 16px;font-size:26px;font-weight:850;letter-spacing:-.01em}
+.a-sec p{margin:0 0 12px}
+.a-warn{background:#F7C9BF;border:2px solid #C2271D;padding:16px 20px;margin-top:22px}
+.a-big{font-size:64px;font-weight:850;line-height:1}
+table.a-tab{width:100%;border-collapse:collapse;margin-top:14px;font-size:16px}
+.a-tab th,.a-tab td{text-align:left;padding:8px 10px;border-bottom:1px solid rgba(28,28,28,.15)}
+.a-tab th{font-weight:600;color:var(--muted)}
+.a-actions{display:flex;flex-wrap:wrap;gap:14px;align-items:center}
+.confirm{display:inline-flex;gap:10px;align-items:center;flex-wrap:wrap}
+.confirm-q{max-width:46ch;font-size:15px}
+.field{display:grid;gap:6px;margin-bottom:14px}
+.field>span{font-size:14px;font-weight:600;color:var(--muted)}
+.admin input[type=text],.admin input[type=url],.admin input[type=number],.admin textarea,.admin select{width:100%;font:inherit;font-size:16px;padding:10px 12px;border:2px solid var(--ink);background:#fff;color:var(--ink);border-radius:0}
+.admin textarea{min-height:64px;resize:vertical}
+.admin input[type=color]{width:56px;height:40px;border:0;background:none;padding:0}
+.qcard{border:2px solid rgba(28,28,28,.25);padding:18px 18px 8px;margin:0 0 16px}
+.qcard legend{padding:0 8px;font-weight:800}
+.optrow{display:grid;grid-template-columns:28px 1fr 1fr auto;gap:10px;align-items:center;margin-bottom:10px}
+.optletter{font-weight:850;text-align:center}
+.row-actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.colors{display:flex;gap:22px;flex-wrap:wrap}
+.colors label{display:flex;gap:10px;align-items:center;font-size:15px}
+.check{display:flex;gap:10px;align-items:center;margin-bottom:12px}
+.check input{width:20px;height:20px;accent-color:var(--blue)}
+.logo-prev{background:#fff;padding:12px;display:inline-block;margin-bottom:10px}
+.logo-prev img{max-height:60px;display:block}
+.swatch{display:inline-block;width:18px;height:18px;background:var(--c);border:1px solid var(--ink);vertical-align:middle;margin-right:8px}
+.savebar{position:fixed;left:0;right:0;bottom:0;padding:14px 24px calc(14px + env(safe-area-inset-bottom,0px));background:var(--paper);border-top:3px solid var(--ink);display:flex;justify-content:center;gap:16px;align-items:center;z-index:10;flex-wrap:wrap}
+.savebar .msg{font-size:15px;max-width:56ch}
+textarea.csv{min-height:200px;font-size:13px;font-family:ui-monospace,Menlo,monospace}
+@media (max-width:720px){.optrow{grid-template-columns:24px 1fr}.optrow input:nth-of-type(2){grid-column:2}.two{grid-template-columns:1fr}}
+@media (prefers-reduced-motion: reduce){*{transition:none !important;animation:none !important}.pop{opacity:1}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="corner" aria-hidden="true"></div>
+<button id="fsBtn" type="button" aria-label="Vollbild"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+<script>
+(function(){
+  const b = document.getElementById('fsBtn'), d = document, r = d.documentElement;
+  const req = r.requestFullscreen || r.webkitRequestFullscreen;
+  const exit = d.exitFullscreen || d.webkitExitFullscreen;
+  const on = () => d.fullscreenElement || d.webkitFullscreenElement;
+  if(!req || !(d.fullscreenEnabled || d.webkitFullscreenEnabled)) return; // z. B. iPhone: nicht unterstützt
+  const sync = () => { b.style.display = on() ? 'none' : 'flex'; };
+  b.addEventListener('click', () => {
+    try{ const p = req.call(r); if(p && p.catch) p.catch(() => {}); }catch(e){}
+  });
+  d.addEventListener('fullscreenchange', sync);
+  d.addEventListener('webkitfullscreenchange', sync);
+  sync();
+})();
+</script>
+<script>
+(function(){
+'use strict';
+
+/* ================= Inhalte (Standard, aus dem Miro-Board) ================= */
+const DEFAULT_CONFIG = {
+  round: 'r1',
+  roundStarted: 0,
+  history: [],
+  event: '3pc',
+  title: 'Wem gehört die Zukunft?',
+  intro: 'Beantworte 7 Fragen, entdecke deine persönliche Zukunftsperspektive und werde Teil unseres gemeinsamen Zukunftsbildes.',
+  cta: 'Jetzt mitmachen!',
+  stickerText: 'Beantworte 7 Fragen zur digitalen Zukunft',
+  questions: [
+    { text:'Gestalten wir die digitale Welt – oder gestaltet sie längst uns?', short:'Gestalten wir die digitale Welt – oder sie uns?',
+      options:[{text:'Wir gestalten sie.',short:'Wir gestalten sie'},{text:'Sie gestaltet uns.',short:'Sie gestaltet uns'}] },
+    { text:'Können wir digitalen Prozessen vertrauen, die wir nicht mehr unmittelbar begreifen?', short:'Vertrauen in digitale Prozesse, die wir nicht begreifen?',
+      options:[{text:'Ja, Vertrauen setzt kein vollständiges Verständnis voraus.',short:'Ja, auch ohne volles Verständnis'},{text:'Nein, Vertrauen braucht Nachvollziehbarkeit.',short:'Nein, nur mit Nachvollziehbarkeit'}] },
+    { text:'Sind die großen Umbrüche unserer Zeit vor allem Krisen – oder Konflikte um die Gestaltung unserer Zukunft?', short:'Die großen Umbrüche unserer Zeit sind vor allem …',
+      options:[{text:'Krisen.',short:'Krisen'},{text:'Interessenkonflikte.',short:'Interessenkonflikte'}] },
+    { text:'Gibt es einen ursprünglichen Kern des Menschseins, den wir bewahren müssen?', short:'Gibt es einen Kern des Menschseins, den wir bewahren müssen?',
+      options:[{text:'Ja, etwas bleibt unveränderlich.',short:'Ja, etwas bleibt'},{text:'Nein, Menschsein ist ein offener Entwicklungsprozess.',short:'Nein, Menschsein ist offen'}] },
+    { text:'Wer sollte darüber bestimmen, wie wir unser Denken und unseren Körper technologisch erweitern?', short:'Wer bestimmt über die technologische Erweiterung von Denken und Körper?',
+      options:[{text:'Jeder Mensch selbst.',short:'Jeder Mensch selbst'},{text:'Die Gesellschaft durch gemeinsame Regeln.',short:'Die Gesellschaft, mit Regeln'}] },
+    { text:'Kann eine KI, die auf Wahrscheinlichkeiten basiert, wirklich Neues erschaffen – oder braucht Innovation den Bruch mit dem Erwartbaren?', short:'Kann eine KI aus Wahrscheinlichkeiten wirklich Neues erschaffen?',
+      options:[{text:'Auch aus bestehenden Mustern kann Neues entstehen.',short:'Ja, auch aus Mustern'},{text:'Wirkliche Innovation beginnt jenseits des Wahrscheinlichen.',short:'Erst jenseits des Wahrscheinlichen'}] },
+    { text:'Entsteht gesellschaftlicher Fortschritt durch technologischen Wettbewerb oder Zusammenarbeit?', short:'Gesellschaftlicher Fortschritt entsteht durch …',
+      options:[{text:'Durch technologischen Wettbewerb.',short:'Wettbewerb'},{text:'Durch Zusammenarbeit.',short:'Zusammenarbeit'}] }
+  ],
+  // pattern: Idealprofil über alle Fragen als [Frage-Index, Antwort-Index, Gewicht], Indizes ab 0.
+  // Jede passende Antwort zählt 1 Punkt, die Leitfrage 1,5. Höchste Punktzahl gewinnt, bei Gleichstand die Reihenfolge.
+  types: [
+    { id:'visionaer', name:'Zukunftsvisionär:in', color:'blue',
+      pattern:[[0,0,1],[1,0,1],[2,1,1],[3,1,1],[4,0,1],[5,1,1.5],[6,0,1]],
+      description:'Du denkst Zukunft groß: Wir gestalten die digitale Welt aktiv, und wirklich Neues entsteht erst jenseits des Erwartbaren. Du vertraust auf Technik und auf die Freiheit jedes Menschen, sich mit ihr weiterzuentwickeln.' },
+    { id:'entdecker', name:'Möglichkeitsentdecker:in', color:'pink',
+      pattern:[[0,1,1],[1,0,1.5],[2,0,1],[3,1,1],[4,0,1],[5,0,1],[6,1,1]],
+      description:'Du gehst neugierig auf Neues zu und lässt dich von Technik auch selbst verändern. Du vertraust digitalen Prozessen, ohne jedes Detail zu verstehen, und entdeckst, wie aus Bekanntem Neues entsteht.' },
+    { id:'souveraen', name:'Souveränitätsdenker:in', color:'orange',
+      pattern:[[0,0,1],[1,1,1],[2,0,1],[3,0,1],[4,0,1.5],[5,1,1],[6,0,1]],
+      description:'Für dich zählt Selbstbestimmung: Technik muss nachvollziehbar bleiben, und über ihre Nutzung entscheidet jeder Mensch selbst. Was den Menschen ausmacht, willst du auch im digitalen Wandel bewahren.' },
+    { id:'netzwerk', name:'Netzwerkgestalter:in', color:'green',
+      pattern:[[0,0,1],[1,1,1],[2,1,1],[3,1,1],[4,1,1],[5,0,1],[6,1,1.5]],
+      description:'Für dich ist Zukunft Teamarbeit: Fortschritt entsteht durch Zusammenarbeit und durch Regeln, die wir gemeinsam aushandeln. Transparenz ist dafür die Grundlage.' }
+  ],
+  email: {
+    enabled: true,
+    title: 'Deine Ergebnisse per E-Mail',
+    text: 'Gib optional deine E-Mail-Adresse ein. Nach der Veranstaltung schicken wir dir deine persönlichen Ergebnisse im Vergleich zu den Gesamtergebnissen.',
+    button: 'Ergebnisse zusenden',
+    note: '* Mit der Eingabe deiner E-Mail-Adresse erhält 3pc deine Adresse. Wir nutzen sie, um dir deine Ergebnisse zu schicken, und informieren dich gegebenenfalls auch über weitere Themen und Aktivitäten von 3pc. Du kannst dem jederzeit widersprechen.',
+    checkbox: false,
+    checkboxText: 'Ja, 3pc darf mich auch über weitere Themen per E-Mail informieren.'
+  },
+  newsletter: { url:'', text:'Oder direkt zum Newsletter:' },
+  timing: { idleSeconds: 60, resultIdleSeconds: 90, overviewSeconds: 10, spotlightSeconds: 7 },
+  design: { theme:'kampagne', bg:'#E8DF56', ink:'#1C1C1C', blue:'#1418F1', pink:'#E8A2CD', orange:'#EB6F44', green:'#5FC898', sky:'#AADBDC', logo:'' }
+};
+const PALETTE = ['blue','pink','orange','green','sky'];
+const PALETTE_NAMES = { blue:'Blau', pink:'Rosa', orange:'Orange', green:'Grün', sky:'Hellblau' };
+
+/* ================= Helfer ================= */
+const clone = o => JSON.parse(JSON.stringify(o));
+const $ = (s, r=document) => r.querySelector(s);
+const LS = {
+  get(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+};
+const rand = n => { const a='abcdefghijkmnpqrstuvwxyz23456789'; let s=''; for(let i=0;i<n;i++) s+=a[Math.floor(Math.random()*a.length)]; return s; };
+const fmt = n => new Intl.NumberFormat('de-DE').format(n);
+const isHex = v => /^#[0-9a-f]{6}$/i.test(v||'');
+const LETTERS = 'ABCD';
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+function el(tag, props, ...kids){
+  const e = document.createElement(tag);
+  if(props) for(const k in props){
+    const v = props[k];
+    if(v == null || v === false) continue;
+    if(k === 'class') e.className = v;
+    else if(k === 'text') e.textContent = v;
+    else if(k === 'style') e.style.cssText = v;
+    else if(k === 'value') e.value = v;
+    else if(k === 'checked') e.checked = !!v;
+    else if(k.slice(0,2) === 'on' && typeof v === 'function') e.addEventListener(k.slice(2), v);
+    else e.setAttribute(k, v === true ? '' : v);
+  }
+  for(const kid of kids.flat(Infinity)){
+    if(kid == null || kid === false) continue;
+    e.append(kid.nodeType ? kid : document.createTextNode(String(kid)));
+  }
+  return e;
+}
+function splitTypeName(name){ const m = String(name).match(/^(der|die|das)\s+(.+)$/i); return m ? { art:m[1], main:m[2] } : { art:'', main:String(name) }; }
+const shy = s => s.replace(/(visionär|entdecker|denker|gestalter|typ)((?::|\*)in(?:nen)?)?$/i, '\u00AD$1$2');
+
+function normalize(raw){
+  const d = clone(DEFAULT_CONFIG);
+  if(!raw || typeof raw !== 'object') return d;
+  const c = Object.assign({}, d, raw);
+  // Ältere Konfigurationen (dunkles Design) auf den Kampagnen-Look umstellen
+  c.design = (raw.design && raw.design.theme === 'kampagne') ? Object.assign({}, d.design, raw.design) : clone(d.design);
+  ['bg','ink','blue','pink','orange','green','sky'].forEach(k => { if(!isHex(c.design[k])) c.design[k] = d.design[k]; });
+  if(typeof c.design.logo !== 'string' || !c.design.logo.startsWith('data:image/')) c.design.logo = '';
+  c.email = Object.assign({}, d.email, raw.email || {});
+  c.newsletter = { url: String((raw.newsletter && raw.newsletter.url) || ''), text: String((raw.newsletter && raw.newsletter.text) || d.newsletter.text) };
+  if(raw.newsletter && raw.newsletter.enabled === false) c.newsletter.url = '';
+  c.timing = Object.assign({}, d.timing, raw.timing || {});
+  const num = (v, lo, hi, df) => { v = +v; return v >= lo && v <= hi ? v : df; };
+  c.timing.idleSeconds = num(c.timing.idleSeconds, 15, 600, 60);
+  c.timing.resultIdleSeconds = num(c.timing.resultIdleSeconds, 20, 900, 90);
+  c.timing.overviewSeconds = num(c.timing.overviewSeconds, 4, 120, 10);
+  c.timing.spotlightSeconds = num(c.timing.spotlightSeconds, 3, 60, 7);
+  let qs = Array.isArray(c.questions) ? c.questions : [];
+  qs = qs.filter(q => q && Array.isArray(q.options) && q.options.length >= 2).map(q => ({
+    text: String(q.text || ''), short: String(q.short || q.text || ''),
+    options: q.options.slice(0,4).map(o => ({ text:String((o&&o.text)||''), short:String((o&&(o.short||o.text))||'') }))
+  }));
+  c.questions = qs.length ? qs : d.questions;
+  c.types = (Array.isArray(c.types) ? c.types : d.types).filter(t => t && t.name).map((t,i) => ({
+    id: String(t.id || ('typ'+i)).replace(/[^A-Za-z0-9_-]/g,'') || ('typ'+i),
+    name: String(t.name), description: String(t.description || ''),
+    color: PALETTE.includes(t.color) ? t.color : PALETTE[i % 4],
+    pattern: (Array.isArray(t.pattern) ? t.pattern : []).filter(p => Array.isArray(p) && p.length >= 2).map(p => { const w = +p[2]; return [p[0]|0, p[1]|0, w >= 0.5 && w <= 3 ? w : 1]; })
+  }));
+  ['event','title','intro','cta','stickerText'].forEach(k => { c[k] = String(c[k] == null ? d[k] : c[k]); });
+  c.round = String(c.round || 'r1').replace(/[^A-Za-z0-9_-]/g,'') || 'r1';
+  c.history = Array.isArray(c.history) ? c.history.slice(-20) : [];
+  delete c.design.variant;
+  return c;
+}
+const structSig = c => c.questions.map(q => q.options.length).join(',');
+const newRoundId = () => 'r' + Date.now().toString(36);
+
+/* ================= Zustand ================= */
+/* ---- Deployment shim: ersetzt die Claude-Runtime durch Firebase Firestore ---- */
+const FIREBASE_CONFIG = {
+  apiKey: 'AIzaSyA2NJFQAF_99lH_qgVHkoEifD8lQ-NKkuc',
+  authDomain: 'sccon-app-bdd00.firebaseapp.com',
+  projectId: 'sccon-app-bdd00',
+  appId: '1:424724086182:web:82fa36bff34e97ab462367'
+};
+let fdb = null;
+try{
+  if(window.firebase && FIREBASE_CONFIG.apiKey !== 'DEIN_API_KEY'){
+    firebase.initializeApp(FIREBASE_CONFIG);
+    fdb = firebase.firestore();
+  }
+}catch(e){ console.error('Firebase init failed', e); }
+const fileDownloads = {
+  save: async ({ filename, data }) => {
+    const blob = new Blob([data], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = filename;
+    document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+};
+const use = n => Promise.resolve(n === 'db' ? fdb : n === 'downloads' ? fileDownloads : null);
+
+let config = normalize(null);
+let db = null, user = null, downloads = null;
+let dbState = 'connecting';
+let canAdmin = null;
+let mode = LS.get('wgdz.mode', null);
+let view = null;
+
+/* ---------- Zwischensummen pro Terminal ---------- */
+let tallyDocs = [], tallyUnsub = null, tallyRound = null;
+function subscribeTallies(){
+  if(!db) return;
+  if(tallyUnsub && tallyRound === config.round) return;
+  if(tallyUnsub){ tallyUnsub(); tallyUnsub = null; }
+  tallyRound = config.round; tallyDocs = [];
+  try{
+    tallyUnsub = db.collection('tallies').where('round','==',tallyRound).onSnapshot(snap => {
+      tallyDocs = snap.docs.map(d => Object.assign({ _id:d.id }, d.data()));
+      if(view && view.onTallies) view.onTallies();
+    }, err => {
+      tallyUnsub = null;
+      if(err && err.code === 'unavailable') setTimeout(subscribeTallies, 4000);
+    });
+  }catch(e){ tallyUnsub = null; }
+}
+function emptyAgg(){ return { n:0, counts: config.questions.map(q => q.options.map(() => 0)), types:{} }; }
+function addTally(agg, t){
+  if(!t) return;
+  agg.n += t.n || 0;
+  const cs = t.counts || {};
+  for(const k in cs){
+    const qi = parseInt(k.slice(1), 10);
+    if(!agg.counts[qi] || !Array.isArray(cs[k])) continue;
+    cs[k].forEach((c, oi) => { if(oi < agg.counts[qi].length) agg.counts[qi][oi] += c || 0; });
+  }
+  const ty = t.types || {};
+  for(const k in ty) agg.types[k] = (agg.types[k] || 0) + (ty[k] || 0);
+}
+function aggregate(opts){
+  opts = opts || {};
+  const agg = emptyAgg();
+  for(const t of (opts.docs || tallyDocs)){ if(opts.exclude && t.terminal === opts.exclude) continue; addTally(agg, t); }
+  if(opts.local) addTally(agg, opts.local);
+  return agg;
+}
+function computeType(answers){
+  // Punkte pro Typ: passende Antwort = 1, Leitfrage = Gewicht (1,5). Bei Gleichstand gewinnt der zuerst gelistete Typ.
+  let best = null;
+  config.types.forEach(ty => {
+    if(!ty.pattern.length) return;
+    const score = ty.pattern.reduce((s, [q, o, w]) => s + (answers[q] === o ? (w || 1) : 0), 0);
+    if(!best || score > best.score) best = { ty, score };
+  });
+  return best ? best.ty : null;
+}
+function pctList(counts){
+  const total = counts.reduce((a,b) => a+b, 0);
+  if(!total) return counts.map(() => null);
+  const raw = counts.map(c => c/total*100), base = raw.map(Math.floor);
+  let rest = 100 - base.reduce((a,b) => a+b, 0);
+  raw.map((r,i) => [r - base[i], i]).sort((a,b) => b[0]-a[0]).forEach(([,i]) => { if(rest > 0){ base[i]++; rest--; } });
+  return base;
+}
+
+/* ---------- Terminal: lokaler Speicher + Offline-Puffer ---------- */
+const TS_KEY = 'wgdz.terminal';
+let ts = LS.get(TS_KEY, null);
+if(!ts || !ts.id) ts = { id: 't-' + rand(8), tallies:{}, pending:[], dirty:[] };
+ts.tallies = ts.tallies || {}; ts.pending = ts.pending || []; ts.dirty = ts.dirty || []; ts.failed = ts.failed || 0;
+const saveTs = () => LS.set(TS_KEY, ts);
+const adopted = {};
+function localTally(round){
+  if(!ts.tallies[round]) ts.tallies[round] = { n:0, counts:{}, types:{} };
+  return ts.tallies[round];
+}
+async function adoptRemoteTally(){
+  const r = config.round;
+  if(!db || adopted[r]) return;
+  adopted[r] = true;
+  if(ts.tallies[r]) return;
+  try{
+    const s = await db.collection('tallies').doc(r + '__' + ts.id).get();
+    if(s.exists && !ts.tallies[r]){
+      const d = s.data();
+      ts.tallies[r] = { n:d.n||0, counts:clone(d.counts||{}), types:clone(d.types||{}) };
+      saveTs();
+    }
+  }catch(e){ adopted[r] = false; }
+}
+function submitAnswers(answers){
+  const round = config.round;
+  const type = computeType(answers);
+  const t = localTally(round);
+  t.n++;
+  answers.forEach((a, qi) => {
+    const k = 'q' + qi;
+    if(!Array.isArray(t.counts[k])) t.counts[k] = config.questions[qi].options.map(() => 0);
+    while(t.counts[k].length <= a) t.counts[k].push(0);
+    t.counts[k][a]++;
+  });
+  if(type) t.types[type.id] = (t.types[type.id] || 0) + 1;
+  const id = 'r-' + Date.now().toString(36) + '-' + rand(6);
+  ts.pending.push({ coll:'responses', id, data: { round, t: Date.now(), a: answers, type: type ? type.id : null, terminal: ts.id } });
+  if(!ts.dirty.includes(round)) ts.dirty.push(round);
+  for(const k in ts.tallies) if(k !== round && !ts.dirty.includes(k)) delete ts.tallies[k];
+  saveTs();
+  flush();
+  return { type, id };
+}
+function queueContact(data){
+  ts.pending.push({ coll:'contacts', id: 'c-' + Date.now().toString(36) + '-' + rand(6), data });
+  saveTs(); flush();
+}
+let flushing = false, flushAgain = false;
+async function flush(){
+  if(!db){ updateDot(); return; }
+  if(flushing){ flushAgain = true; return; }
+  flushing = true;
+  try{
+    while(ts.pending.length){
+      const r = ts.pending[0];
+      try{
+        await db.collection(r.coll || 'responses').doc(r.id).set(r.data);
+      }catch(e){
+        // Dauerhaft abgelehnt (z. B. fehlende Rechte): nicht den ganzen Puffer blockieren
+        if(e && (e.code === 'invalid_argument' || e.code === 'quota_exceeded')){ ts.failed++; ts.pending.shift(); saveTs(); continue; }
+        throw e;
+      }
+      ts.pending.shift(); saveTs();
+    }
+    for(const round of ts.dirty.slice()){
+      const t = ts.tallies[round];
+      if(t) await db.collection('tallies').doc(round + '__' + ts.id).set({ round, terminal: ts.id, n:t.n, counts:t.counts, types:t.types, updatedAt: Date.now() });
+      ts.dirty = ts.dirty.filter(x => x !== round); saveTs();
+    }
+  }catch(e){ /* bleibt im Puffer, nächster Versuch folgt */ }
+  finally{
+    flushing = false; updateDot();
+    if(flushAgain){ flushAgain = false; setTimeout(flush, 300); }
+  }
+}
+let dotEl = null;
+function updateDot(){
+  if(!dotEl) return;
+  dotEl.className = 'status-dot';
+  if(dbState === 'none'){ dotEl.classList.add('off'); dotEl.title = 'Keine Datenbankverbindung'; }
+  else if(ts.pending.length || ts.dirty.length){ dotEl.classList.add('wait'); dotEl.title = (ts.pending.length || 1) + ' Einträge warten auf Übertragung'; }
+  else dotEl.title = 'Verbunden, alles übertragen' + (ts.failed ? ' (' + ts.failed + ' Einträge abgelehnt)' : '');
+}
+
+/* ================= Gestaltungselemente ================= */
+function applyDesign(){
+  const d = config.design, r = document.documentElement.style;
+  ['bg','ink','blue','pink','orange','green','sky'].forEach(k => r.setProperty('--' + k, d[k]));
+  document.body.style.background = d.bg;
+}
+function brand(cls){
+  const d = config.design;
+  return el('div', { class: 'brand ' + (cls || '') },
+    d.logo ? el('img', { src: d.logo, alt: config.event || 'Logo' }) : el('span', { class:'wordmark', text: config.event || '' }));
+}
+const HL_TILT = [-1.6, 1.1, -0.9, 1.4, -2];
+function headline(cls){
+  const words = config.title.toUpperCase().replace(/\s*([?!])$/, ' $1').split(/\s+/).filter(Boolean);
+  return el('h1', { class: 'hl ' + (cls || ''), 'aria-label': config.title },
+    words.map((w, i) => el('span', { class: 'hl-w c-' + PALETTE[i % 5], style: '--r:' + HL_TILT[i % 5] + 'deg', 'aria-hidden':'true' }, w)));
+}
+let stickerN = 0;
+function sticker(inner, onclick){
+  const NS = 'http://www.w3.org/2000/svg', id = 'arc' + (++stickerN);
+  const svg = document.createElementNS(NS, 'svg'); svg.setAttribute('viewBox', '0 0 200 200'); svg.setAttribute('aria-hidden', 'true');
+  const g = document.createElementNS(NS, 'g'); g.setAttribute('class', 'ring');
+  const path = document.createElementNS(NS, 'path'); path.setAttribute('id', id); path.setAttribute('fill', 'none');
+  path.setAttribute('d', 'M100,100 m-88,0 a88,88 0 1,1 176,0 a88,88 0 1,1 -176,0');
+  const text = document.createElementNS(NS, 'text');
+  const tp = document.createElementNS(NS, 'textPath'); tp.setAttribute('href', '#' + id);
+  tp.setAttribute('textLength', '548'); tp.setAttribute('lengthAdjust', 'spacing');
+  const rep = Math.max(1, Math.round(548 / ((config.cta.length + 4) * 9.2)));
+  tp.textContent = Array(rep).fill(config.cta + '  •  ').join('');
+  text.append(tp); g.append(path, text); svg.append(g);
+  return el('div', { class:'sticker', role: onclick ? 'button' : null, tabindex: onclick ? '0' : null, onclick: onclick || null,
+    'aria-label': onclick ? config.cta : null }, svg, el('div', { class:'st-in', text: inner }));
+}
+function fitText(node, minPx){
+  if(!node) return;
+  node.style.fontSize = '';
+  let fs = parseFloat(getComputedStyle(node).fontSize);
+  let guard = 40;
+  while(guard-- > 0 && fs > minPx && (node.scrollWidth > node.clientWidth + 1 || node.scrollHeight > node.clientHeight + 1)){
+    fs -= 4; node.style.fontSize = fs + 'px';
+  }
+}
+
+/* ================= Ansicht: Modus wählen ================= */
+function PickerView(root){
+  const wrap = el('div', { class:'scroll' }); root.append(wrap);
+  function draw(){
+    const adminBlocked = canAdmin === false;
+    wrap.replaceChildren(el('div', { class:'picker' },
+      brand(),
+      el('h2', { class:'hl row p-title' }, ['Gerät', 'einrichten'].map((w, i) => el('span', { class:'hl-w c-' + PALETTE[i], style:'--r:' + HL_TILT[i] + 'deg' }, w))),
+      el('p', { class:'p-lead', text:'Wähle, wofür dieses Gerät auf der Messe genutzt wird. Die Auswahl bleibt auf dem Gerät gespeichert.' }),
+      el('div', { class:'p-grid' },
+        el('button', { class:'p-card', onclick: () => setMode('terminal') }, el('strong', { text:'Terminal' }), el('span', { text:'Eingabe am Stand. Besucher:innen beantworten die Fragen und sehen ihren Zukunftstyp.' })),
+        el('button', { class:'p-card', onclick: () => setMode('screen') }, el('strong', { text:'Großer Screen' }), el('span', { text:'Die vier Zukunftstypen im Wechsel, live für die Leinwand.' })),
+        el('button', { class:'p-card', disabled: adminBlocked, onclick: () => setMode('admin') }, el('strong', { text:'Admin' }), el('span', { text: adminBlocked ? 'Nur für Personen mit Bearbeitungsrechten an diesem Artifact.' : 'Fragen bearbeiten, Ergebnisse zurücksetzen, Daten exportieren.' }))
+      ),
+      dbState === 'none' ? el('p', { class:'a-warn', text:'Keine Datenbankverbindung. Damit Antworten gespeichert und live angezeigt werden, muss dieses Gerät im Browser bei claude.ai mit dem 3pc-Konto angemeldet sein.' }) : null,
+      el('p', { class:'p-note', text:'Später wechseln: fünfmal schnell in die linke obere Ecke tippen oder klicken.' })
+    ));
+  }
+  draw();
+  return { onDb: draw, onConfig: draw, destroy(){ wrap.remove(); } };
+}
+
+/* ================= Ansicht: Terminal ================= */
+function TerminalView(root){
+  let state = 'start', answers = [], qi = 0, lock = false, idleT = 0, last = null, sig = structSig(config);
+  const wrap = el('div', { class:'term' }); root.append(wrap);
+  dotEl = el('div', { class:'status-dot', role:'status' });
+  subscribeTallies(); adoptRemoteTally(); flush();
+  const flushTimer = setInterval(flush, 8000);
+  const onOnline = () => flush();
+  addEventListener('online', onOnline);
+
+  function resetIdle(){
+    clearTimeout(idleT);
+    if(state === 'q') idleT = setTimeout(() => go('start'), config.timing.idleSeconds * 1000);
+    if(state === 'result') idleT = setTimeout(() => go('start'), config.timing.resultIdleSeconds * 1000);
+  }
+  wrap.addEventListener('pointerdown', resetIdle);
+  wrap.addEventListener('keydown', resetIdle);
+  wrap.addEventListener('input', resetIdle);
+
+  function go(s){
+    state = s; clearTimeout(idleT);
+    if(s === 'start'){ answers = []; qi = 0; last = null; }
+    draw(); resetIdle();
+  }
+  function draw(){
+    wrap.replaceChildren();
+    if(state === 'start') drawStart(); else if(state === 'q') drawQ(); else drawResult();
+    wrap.append(dotEl); updateDot(); wrap.scrollTop = 0;
+  }
+  function drawStart(){
+    wrap.append(el('div', { class:'t-top' }, brand()),
+      el('section', { class:'t-start' },
+        el('div', {},
+          headline('stack t-title'),
+          el('p', { class:'t-intro', text: config.intro }),
+          el('button', { class:'btn-primary', onclick: () => go('q') }, 'Starten')),
+        sticker(config.stickerText, () => go('q'))));
+  }
+  function drawQ(){
+    const q = config.questions[qi], N = config.questions.length;
+    wrap.append(el('section', { class:'t-q' },
+      el('div', { class:'t-progress', 'aria-hidden':'true' }, config.questions.map((_, i) => el('span', { class: i < qi ? 'done' : i === qi ? 'now' : '' }))),
+      el('p', { class:'t-count', text: 'Frage ' + (qi+1) + ' von ' + N }),
+      el('h2', { class:'t-question', text: q.text }),
+      el('div', { class:'t-options' }, q.options.map((o, oi) =>
+        el('button', { class: 'opt' + (answers[qi] === oi ? ' chosen' : ''), onclick: e => choose(oi, e.currentTarget) }, o.text))),
+      el('div', { class:'t-foot' },
+        el('button', { class:'btn-ghost', onclick: () => { if(qi > 0){ qi--; draw(); resetIdle(); } else go('start'); } }, 'Zurück'))));
+  }
+  function choose(oi, btn){
+    if(lock) return; lock = true;
+    answers[qi] = oi;
+    btn.parentNode.querySelectorAll('.opt').forEach(b => b.classList.remove('chosen'));
+    btn.classList.add('chosen');
+    setTimeout(() => {
+      lock = false;
+      if(qi < config.questions.length - 1){ qi++; draw(); resetIdle(); }
+      else { last = submitAnswers(answers.slice()); go('result'); }
+    }, 300);
+  }
+  function drawResult(){
+    const agg = aggregate({ exclude: ts.id, local: localTally(config.round) });
+    const others = agg.n - 1;
+    const share = c => others > 0 ? Math.round(Math.max(0, c - 1) / others * 100) : null;
+    const ty = last && last.type;
+    const tyShare = ty ? share(agg.types[ty.id] || 0) : null;
+    const nm = ty ? splitTypeName(ty.name) : null;
+    const left = el('div', { class: ty ? 'c-' + ty.color : '' },
+      el('p', { class:'res-kicker', text:'Dein Zukunftstyp' }),
+      el('h2', { class:'res-type' }, ty ? el('span', { class:'hi', text: (nm.art ? nm.art + ' ' : '') + shy(nm.main) }) : el('span', { class:'hi c-blue', text:'Danke!' })),
+      ty && ty.description ? el('p', { class:'res-desc', text: ty.description }) : null,
+      el('p', { class:'res-share', text: tyShare == null ? 'Du bist die erste Teilnahme dieser Runde.' : tyShare + ' % der anderen Teilnehmenden haben denselben Zukunftstyp.' }),
+      el('ol', { class:'cmp' }, config.questions.map((q, i) => {
+        const a = answers[i], p = share((agg.counts[i] || [])[a] || 0);
+        return el('li', {},
+          el('span', { class:'cmp-q', text: q.short }),
+          el('span', { class:'cmp-a', text: 'Du: ' + q.options[a].short }),
+          el('span', { class:'cmp-p', text: p == null ? 'erste Stimme' : p + ' % wie du' }),
+          el('span', { class:'cmp-bar' }, el('i', { style: 'width:' + (p || 0) + '%' })));
+      })),
+      el('div', { class:'res-foot' }, el('button', { class:'btn-secondary', onclick: () => go('start') }, 'Fertig')));
+    wrap.append(el('section', { class:'t-res' }, left, mailPanel()));
+  }
+  function mailPanel(){
+    const m = config.email, nlUrl = /^https?:\/\/\S+$/i.test(config.newsletter.url || '') ? config.newsletter.url : '';
+    if(!m.enabled && !nlUrl) return null;
+    const box = el('aside', { class:'mail' });
+    if(m.enabled){
+      const inp = el('input', { type:'email', id:'mailin', inputmode:'email', autocomplete:'off', autocapitalize:'off', spellcheck:'false', placeholder:'deine@adresse.de' });
+      const chk = m.checkbox ? el('input', { type:'checkbox' }) : null;
+      const msg = el('p', { class:'mail-msg', 'aria-live':'polite' });
+      const form = el('div', { class:'mail-form' });
+      const btn = el('button', { class:'btn-primary', style:'padding:16px 28px;font-size:20px', onclick: () => {
+        const v = inp.value.trim();
+        if(!EMAIL_RE.test(v)){ msg.textContent = 'Bitte gib eine gültige E-Mail-Adresse ein.'; return; }
+        queueContact({ email: v, round: config.round, t: Date.now(), answers: answers.slice(), type: last && last.type ? last.type.id : null,
+          responseId: last ? last.id : null, marketingConsent: chk ? !!chk.checked : null, terminal: ts.id });
+        form.replaceChildren(el('p', { class:'mail-ok', text:'Danke! Nach der Veranstaltung bekommst du deine Ergebnisse per E-Mail.' }));
+      } }, m.button);
+      form.append(...[el('label', { class:'lbl', for:'mailin', text:'E-Mail-Adresse (optional)*' }), inp,
+        chk ? el('label', { class:'mail-check' }, chk, el('span', { text: m.checkboxText })) : null, btn, msg].filter(Boolean));
+      box.append(el('h3', { text: m.title }), el('p', { text: m.text }), form, el('p', { class:'mail-note', text: m.note }));
+    }
+    if(nlUrl){
+      const q = el('div', { class:'qr', role:'img', 'aria-label':'QR-Code zum Newsletter' });
+      box.append(el('p', { class:'qr-hint', style: m.enabled ? 'margin-top:22px !important' : null, text: config.newsletter.text }), q);
+      requestAnimationFrame(() => {
+        try{
+          if(typeof QRCode === 'undefined') throw 0;
+          new QRCode(q, { text: nlUrl, width: 170, height: 170, colorDark: '#1C1C1C', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
+        }catch(e){ q.textContent = nlUrl; q.style.cssText = 'font-size:14px;max-width:220px;word-break:break-all'; }
+      });
+    }
+    return box;
+  }
+  draw();
+  return {
+    onDb(){ subscribeTallies(); adoptRemoteTally(); flush(); updateDot(); },
+    onConfig(){
+      subscribeTallies(); adoptRemoteTally();
+      const s = structSig(config);
+      if(s !== sig){ sig = s; if(state !== 'result') go('start'); return; }
+      if(state === 'start') draw();
+    },
+    onTallies(){},
+    destroy(){ clearTimeout(idleT); clearInterval(flushTimer); removeEventListener('online', onOnline); dotEl = null; wrap.remove(); }
+  };
+}
+
+/* ================= Ansicht: Großer Screen ================= */
+const TILE_TILT = [-1.2, 1.4, 1, -1.5, 0.8, -0.8];
+function ScreenView(root){
+  const wrap = el('div', { class:'screen-root' }); root.append(wrap);
+  const stage = el('div', { class:'stage' }); wrap.append(stage);
+  let sceneEl = null, phase = 0, phaseT = 0, prevAgg = null, footEl = null, popLayer = null, tiles = {}, spot = null, notice = null, idleT = 0;
+  subscribeTallies();
+
+  function fit(){
+    const s = Math.min(innerWidth / 1920, innerHeight / 1080);
+    stage.style.transform = 'translate(-50%,-50%) scale(' + s + ')';
+  }
+  const phases = () => ['ov'].concat(config.types.map(t => t.id));
+  function build(){
+    clearTimeout(phaseT);
+    stage.replaceChildren();
+    footEl = el('div', { class:'s-foot' });
+    popLayer = el('div', { class:'pops', 'aria-hidden':'true' });
+    stage.append(
+      el('div', { class:'s-top' }, headline('row s-hl'), brand('s-brand')),
+      footEl,
+      el('div', { class:'s-sticker' }, sticker(config.stickerText)),
+      popLayer);
+    sceneEl = null; tiles = {}; spot = null;
+    phase = Math.min(phase, phases().length - 1);
+    showPhase();
+    fit();
+  }
+  function showPhase(){
+    clearTimeout(phaseT);
+    const list = phases();
+    if(phase >= list.length) phase = 0;
+    const id = list[phase];
+    const old = sceneEl;
+    if(old){ old.classList.remove('in'); old.classList.add('out'); setTimeout(() => old.remove(), 650); }
+    const ty = config.types.find(t => t.id === id);
+    sceneEl = (id === 'ov' || !ty) ? buildOverview() : buildSpot(ty);
+    sceneEl.classList.add('in');
+    stage.insertBefore(sceneEl, popLayer);
+    update(true);
+    fitScene(sceneEl);
+    const dur = (id === 'ov' ? config.timing.overviewSeconds : config.timing.spotlightSeconds) * 1000;
+    phaseT = setTimeout(() => { phase = (phase + 1) % phases().length; showPhase(); }, dur);
+  }
+  function fitScene(sc){
+    sc.querySelectorAll('.t-name').forEach(n => fitText(n, 34));
+    sc.querySelectorAll('.sp-name').forEach(n => { n.style.fontSize = ''; let fs = 120, g = 30; while(g-- > 0 && fs > 70 && (n.scrollWidth > n.clientWidth + 1 || n.offsetHeight > 330)){ fs -= 6; n.style.fontSize = fs + 'px'; } });
+  }
+  function buildOverview(){
+    tiles = {}; spot = null;
+    const grid = el('div', { class:'ov-grid' });
+    config.types.forEach((t, i) => {
+      const n = splitTypeName(t.name);
+      const pct = el('div', { class:'t-pct' });
+      const tile = el('div', { class:'tile c-' + t.color, style:'--r:' + TILE_TILT[i % TILE_TILT.length] + 'deg;--i:' + i },
+        el('div', { class:'t-der', text: n.art || '\u00A0' }), el('div', { class:'t-name', text: shy(n.main) }), pct);
+      const w = el('div', { class:'tile-wrap' }, tile);
+      grid.append(w); tiles[t.id] = { w, tile, pct };
+    });
+    return el('div', { class:'scene ov' }, grid);
+  }
+  function buildSpot(t){
+    tiles = {};
+    const n = splitTypeName(t.name);
+    const pct = el('div', { class:'sp-pct' }), sub = el('div', { class:'sp-sub' });
+    spot = { id: t.id, pct, sub };
+    return el('div', { class:'scene sp c-' + t.color },
+      el('div', { class:'sp-left' },
+        n.art ? el('div', {}, el('span', { class:'sp-der hi anim', style:'--i:0;--r:-2deg', text: n.art })) : null,
+        el('div', { class:'sp-name', style:'--r:-1deg' }, el('span', { class:'hi', text: shy(n.main) })),
+        t.description ? el('p', { class:'sp-desc anim', style:'--i:3', text: t.description }) : null),
+      el('div', { class:'sp-right' }, el('div', { class:'sp-circle anim', style:'--i:2' }, pct, sub)));
+  }
+  function spawnPop(t, k){
+    const p = el('div', { class:'pop c-' + t.color, style:'--x:' + Math.round(160 + Math.random() * 1100) + 'px;--r:' + (Math.random() * 8 - 4).toFixed(1) + 'deg;animation-delay:' + (k * .35) + 's' },
+      el('b', { text:'+1' }), splitTypeName(t.name).main);
+    popLayer.append(p);
+    setTimeout(() => p.remove(), 3700 + k * 350);
+  }
+  function update(quiet){
+    const agg = aggregate(), n = agg.n;
+    footEl.textContent = n === 0 ? 'Sei die erste Stimme!' : n === 1 ? '1 Teilnahme bisher' : 'Schon ' + fmt(n) + ' Teilnahmen';
+    const counts = config.types.map(t => agg.types[t.id] || 0);
+    const pcts = pctList(counts), sum = counts.reduce((a,b) => a+b, 0);
+    config.types.forEach((t, i) => {
+      const T = tiles[t.id]; if(!T) return;
+      T.pct.textContent = sum ? pcts[i] + ' %' : '?';
+      const sc = sum ? 0.86 + Math.min(1, counts[i] / sum * 2) * 0.2 : 1;
+      T.w.style.setProperty('--sc', sc.toFixed(3));
+    });
+    if(spot){
+      const i = config.types.findIndex(t => t.id === spot.id);
+      spot.pct.textContent = sum ? pcts[i] + ' %' : '?';
+      spot.sub.textContent = sum ? 'der Teilnehmenden' : 'Mach mit und finde es heraus';
+    }
+    if(!quiet && prevAgg && n > prevAgg.n){
+      let made = 0;
+      config.types.forEach(t => {
+        const d = (agg.types[t.id] || 0) - (prevAgg.types[t.id] || 0);
+        for(let k = 0; k < d && made < 5; k++, made++) spawnPop(t, made);
+        if(d > 0){
+          const target = tiles[t.id] ? tiles[t.id].pct : (spot && spot.id === t.id ? spot.pct : null);
+          if(target){ target.classList.remove('bump'); void target.offsetWidth; target.classList.add('bump'); }
+        }
+      });
+    }
+    prevAgg = { n, types: Object.assign({}, agg.types) };
+    showNotice();
+  }
+  function showNotice(){
+    if(dbState === 'none' && !notice){ notice = el('div', { class:'s-notice', text:'Keine Datenbankverbindung – bitte im Browser bei claude.ai mit dem 3pc-Konto anmelden.' }); wrap.append(notice); }
+    if(dbState !== 'none' && notice){ notice.remove(); notice = null; }
+  }
+  function hideCursor(){ wrap.classList.remove('idle'); clearTimeout(idleT); idleT = setTimeout(() => wrap.classList.add('idle'), 3000); }
+  wrap.addEventListener('pointermove', hideCursor); hideCursor();
+  addEventListener('resize', fit);
+  build();
+  if(document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if(sceneEl) fitScene(sceneEl); });
+  return {
+    onDb(){ subscribeTallies(); showNotice(); },
+    onConfig(){ subscribeTallies(); prevAgg = null; build(); },
+    onTallies(){ update(false); },
+    destroy(){ clearTimeout(phaseT); clearTimeout(idleT); removeEventListener('resize', fit); wrap.remove(); }
+  };
+}
+
+/* ================= Ansicht: Admin ================= */
+function AdminView(root){
+  const wrap = el('div', { class:'scroll' }); root.append(wrap);
+  const page = el('div', { class:'admin' }); wrap.append(page);
+  let draft = clone(config), dirty = false, liveEl = null, formEl = null, saveMsg = null, saveBtn = null, pendingStructConfirm = false;
+  subscribeTallies();
+
+  const markDirty = () => { dirty = true; if(saveMsg) saveMsg.textContent = 'Ungespeicherte Änderungen'; };
+  function field(label, input){ return el('label', { class:'field' }, el('span', { text: label }), input); }
+  function txt(value, onInput, ph){ return el('input', { type:'text', value: value || '', placeholder: ph || null, oninput: e => { onInput(e.target.value); markDirty(); } }); }
+  function area(value, onInput){ return el('textarea', { value: value || '', oninput: e => { onInput(e.target.value); markDirty(); } }); }
+  function numIn(value, lo, hi, onInput){ return el('input', { type:'number', min: lo, max: hi, value, oninput: e => { onInput(+e.target.value); markDirty(); } }); }
+
+  function confirmButton(label, question, run, cls){
+    const box = el('span', { class:'confirm' });
+    const b = el('button', { class: cls || 'btn-secondary', onclick: () => {
+      box.replaceChildren(el('span', { class:'confirm-q', text: question }),
+        el('button', { class:'btn-danger', onclick: async () => {
+          const status = el('span', { class:'muted', text:'Läuft …' });
+          box.replaceChildren(status);
+          try{ const r = await run(status); box.replaceChildren(b, r ? el('span', { text:' ' + r }) : ''); }
+          catch(e){ box.replaceChildren(b, el('span', { class:'danger', text:' Fehlgeschlagen: ' + ((e && e.message) || e) })); }
+        } }, 'Ja'),
+        el('button', { class:'btn-ghost', onclick: () => box.replaceChildren(b) }, 'Abbrechen'));
+    } }, label);
+    box.append(b); return box;
+  }
+  async function saveFile(filename, data){
+    if(downloads){
+      try{ await downloads.save({ filename, data }); return 'Download bereit.'; }
+      catch(e){ if(e && e.code === 'declined') return 'Download abgebrochen.'; }
+    }
+    const ta = el('textarea', { class:'csv', readonly:true, value: data });
+    page.append(el('div', { class:'a-sec' }, el('h2', { text: filename }), el('p', { text:'Download ist hier nicht verfügbar. Inhalt markieren und kopieren:' }), ta));
+    ta.scrollIntoView({ behavior:'smooth' });
+    return 'Inhalt unten zum Kopieren.';
+  }
+  const csvCell = v => { v = v == null ? '' : String(v); return /[";\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+  const toCsv = rows => '\uFEFF' + rows.map(r => r.map(csvCell).join(';')).join('\r\n');
+  const slug = s => String(s || 'messe').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+  async function fetchAll(coll, filter){
+    const out = [], seen = new Set(); let lastT = null;
+    for(let i = 0; i < 60; i++){
+      let q = db.collection(coll);
+      if(filter) q = q.where(filter[0], filter[1], filter[2]);
+      if(lastT != null) q = q.where('t', '>=', lastT);
+      const snap = await q.orderBy('t').limit(1000).get();
+      let added = 0;
+      snap.docs.forEach(d => { if(!seen.has(d.id)){ seen.add(d.id); out.push(Object.assign({ _id: d.id }, d.data())); added++; } });
+      if(snap.size < 1000 || !added) break;
+      lastT = snap.docs[snap.size - 1].data().t;
+    }
+    return out;
+  }
+  const tyName = id => (config.types.find(t => t.id === id) || {}).name || id || '';
+  async function exportRound(round){
+    if(!db) throw new Error('Keine Datenbank');
+    const list = await fetchAll('responses', ['round','==',round]);
+    const qs = config.questions;
+    const head = ['Zeitpunkt','Terminal','Testdaten'].concat(qs.map((q,i) => 'Frage ' + (i+1) + ': ' + q.short), ['Zukunftstyp']);
+    const rows = [head].concat(list.map(r => [new Date(r.t).toLocaleString('de-DE'), r.terminal || '', r.test ? 'ja' : '']
+      .concat(qs.map((q,i) => { const a = (r.a || [])[i]; return a == null ? '' : ((q.options[a] || {}).text || a); }), [tyName(r.type)])));
+    return list.length + ' Teilnahmen. ' + await saveFile('antworten-' + slug(config.event) + '-' + round + '.csv', toCsv(rows));
+  }
+  async function exportContacts(){
+    if(!db) throw new Error('Keine Datenbank');
+    const list = await fetchAll('contacts');
+    const aggs = {};
+    for(const r of new Set(list.map(c => c.round))){
+      const snap = await db.collection('tallies').where('round','==',r).get();
+      aggs[r] = aggregate({ docs: snap.docs.map(d => d.data()) });
+    }
+    const qs = config.questions;
+    const head = ['Zeitpunkt','E-Mail','Weitere Infos erlaubt (Checkbox)','Zukunftstyp','Anteil gleicher Typ gesamt'];
+    qs.forEach((q, i) => head.push('Frage ' + (i+1) + ': ' + q.short, 'Frage ' + (i+1) + ': Anteil gleiche Antwort gesamt'));
+    head.push('Teilnahmen gesamt');
+    const pct = (c, n) => n ? Math.round(c / n * 100) + ' %' : '';
+    const rows = [head].concat(list.map(c => {
+      const g = aggs[c.round] || emptyAgg();
+      const row = [new Date(c.t).toLocaleString('de-DE'), c.email, c.marketingConsent == null ? '' : (c.marketingConsent ? 'ja' : 'nein'), tyName(c.type), pct(g.types[c.type] || 0, g.n)];
+      qs.forEach((q, i) => { const a = (c.answers || [])[i]; row.push(a == null ? '' : ((q.options[a] || {}).text || a), a == null ? '' : pct(((g.counts[i] || [])[a]) || 0, g.n)); });
+      row.push(g.n);
+      return row;
+    }));
+    return list.length + ' Kontakte. ' + await saveFile('kontakte-mit-ergebnissen-' + slug(config.event) + '.csv', toCsv(rows));
+  }
+  async function deleteColl(coll, status){
+    const list = await fetchAll(coll); let i = 0;
+    for(const r of list){ await db.collection(coll).doc(r._id).delete(); i++; if(i % 10 === 0) status.textContent = i + ' von ' + list.length + ' gelöscht …'; }
+    return list.length + ' Einträge gelöscht.';
+  }
+  async function startNewRound(){
+    const c = normalize(config), now = Date.now();
+    c.history = (c.history || []).concat([{ round: c.round, started: c.roundStarted || 0, ended: now }]).slice(-20);
+    c.round = newRoundId(); c.roundStarted = now;
+    await db.doc('config/survey').set(c);
+    return 'Neue Runde läuft.';
+  }
+  async function makeTestData(status){
+    const round = config.round, n = 50;
+    const ref = db.collection('tallies').doc(round + '__testdaten');
+    const s = await ref.get();
+    const t = s.exists ? clone(s.data()) : { round, terminal:'testdaten', n:0, counts:{}, types:{} };
+    t.counts = t.counts || {}; t.types = t.types || {};
+    const bias = config.questions.map(() => 0.25 + Math.random() * 0.5);
+    for(let i = 0; i < n; i++){
+      const a = config.questions.map((q, qi) => q.options.length === 2 ? (Math.random() < bias[qi] ? 0 : 1) : Math.floor(Math.random() * q.options.length));
+      const ty = computeType(a);
+      t.n++;
+      a.forEach((v, qi) => { const k = 'q' + qi; if(!Array.isArray(t.counts[k])) t.counts[k] = config.questions[qi].options.map(() => 0); t.counts[k][v] = (t.counts[k][v] || 0) + 1; });
+      if(ty) t.types[ty.id] = (t.types[ty.id] || 0) + 1;
+      await db.collection('responses').doc('test-' + Date.now().toString(36) + '-' + rand(5)).set({ round, t: Date.now(), a, type: ty ? ty.id : null, terminal:'testdaten', test:true });
+      if(i % 5 === 4){ status.textContent = (i+1) + ' von ' + n + ' …'; t.updatedAt = Date.now(); await ref.set(t); }
+    }
+    t.updatedAt = Date.now(); await ref.set(t);
+    return n + ' Testteilnahmen erzeugt.';
+  }
+  function rel(t){
+    if(!t) return '–';
+    const s = Math.round((Date.now() - t) / 1000);
+    if(s < 60) return 'vor ' + s + ' s'; if(s < 3600) return 'vor ' + Math.round(s/60) + ' Min.';
+    return new Date(t).toLocaleString('de-DE');
+  }
+  function drawLive(){
+    if(!liveEl) return;
+    const agg = aggregate();
+    const term = tallyDocs.slice().sort((a,b) => (b.updatedAt||0) - (a.updatedAt||0));
+    liveEl.replaceChildren(
+      el('h2', { text:'Live-Status' }),
+      el('div', { class:'a-big', text: fmt(agg.n) }),
+      el('p', { class:'muted', text: 'Teilnahmen in der aktuellen Runde' + (config.roundStarted ? ' (seit ' + new Date(config.roundStarted).toLocaleString('de-DE') + ')' : '') }),
+      term.length ? el('table', { class:'a-tab' },
+        el('tr', {}, el('th', { text:'Quelle' }), el('th', { text:'Teilnahmen' }), el('th', { text:'Zuletzt aktiv' })),
+        term.map(t => el('tr', {}, el('td', { text: t.terminal === 'testdaten' ? 'Testdaten' : 'Terminal ' + String(t.terminal || '').replace(/^t-/,'') + (t.terminal === ts.id ? ' (dieses Gerät)' : '') }), el('td', { text: fmt(t.n || 0) }), el('td', { text: rel(t.updatedAt) }))))
+      : el('p', { class:'muted', text:'Noch keine Terminal-Daten in dieser Runde.' }));
+  }
+  function drawForm(){
+    const d = draft;
+    const qBox = el('div', {});
+    d.questions.forEach((q, i) => {
+      qBox.append(el('fieldset', { class:'qcard' },
+        el('legend', { text:'Frage ' + (i+1) }),
+        field('Frage am Terminal', area(q.text, v => q.text = v)),
+        field('Kurzfassung (Ergebnis-Screen und Export)', txt(q.short, v => q.short = v)),
+        q.options.map((o, oi) => el('div', { class:'optrow' },
+          el('span', { class:'optletter', text: LETTERS[oi] }),
+          txt(o.text, v => o.text = v, 'Antwort am Terminal'),
+          txt(o.short, v => o.short = v, 'Kurzfassung'),
+          q.options.length > 2 ? el('button', { class:'btn-ghost sm', onclick: () => { q.options.splice(oi,1); markDirty(); drawForm(); } }, 'Entfernen') : el('span'))),
+        el('div', { class:'row-actions' },
+          q.options.length < 4 ? el('button', { class:'btn-ghost sm', onclick: () => { q.options.push({ text:'', short:'' }); markDirty(); drawForm(); } }, 'Antwort hinzufügen') : null,
+          d.questions.length > 1 ? el('button', { class:'btn-ghost sm danger', onclick: () => { d.questions.splice(i,1); markDirty(); drawForm(); } }, 'Frage löschen') : null)));
+    });
+    if(d.questions.length < 10) qBox.append(el('button', { class:'btn-secondary', onclick: () => { d.questions.push({ text:'', short:'', options:[{text:'',short:''},{text:'',short:''}] }); markDirty(); drawForm(); } }, 'Frage hinzufügen'));
+
+    const tBox = el('div', {});
+    d.types.forEach((t, i) => {
+      const patText = t.pattern.map(([q,o,w]) => (q+1) + LETTERS[o] + ((w || 1) > 1 ? '*' : '')).join(', ');
+      tBox.append(el('fieldset', { class:'qcard' },
+        el('legend', { class:'c-' + t.color }, el('span', { class:'swatch' }), t.name || 'Neuer Typ'),
+        el('div', { class:'two' },
+          field('Name', txt(t.name, v => t.name = v)),
+          field('Farbe', el('select', { onchange: e => { t.color = e.target.value; markDirty(); drawForm(); } },
+            PALETTE.map(p => el('option', { value: p, selected: t.color === p ? true : null }, PALETTE_NAMES[p]))))),
+        field('Beschreibung (Terminal-Ergebnis und großer Screen)', area(t.description, v => t.description = v)),
+        field('Idealprofil (Fragenummer + Antwortbuchstabe, Leitfrage mit * markieren, z. B. 1A, 2A, 3B, 4B, 5A, 6B*, 7A)', txt(patText, v => {
+          t.pattern = []; const re = /(\d+)\s*([A-D])\s*(\*)?/gi; let m;
+          while((m = re.exec(v))) t.pattern.push([parseInt(m[1],10) - 1, LETTERS.indexOf(m[2].toUpperCase()), m[3] ? 1.5 : 1]);
+        })),
+        el('div', { class:'row-actions' }, el('button', { class:'btn-ghost sm danger', onclick: () => { d.types.splice(i,1); markDirty(); drawForm(); } }, 'Typ löschen'))));
+    });
+    if(d.types.length < 6) tBox.append(el('button', { class:'btn-secondary', onclick: () => { d.types.push({ id:'typ' + rand(4), name:'Neuer Typ', color: PALETTE[d.types.length % 5], description:'', pattern:[] }); markDirty(); drawForm(); } }, 'Typ hinzufügen'));
+
+    const m = d.email, ds = d.design;
+    const logoInput = el('input', { type:'file', accept:'image/png,image/jpeg,image/svg+xml,image/webp', onchange: async e => {
+      const f = e.target.files[0]; if(!f) return;
+      try{ ds.logo = await readLogo(f); markDirty(); drawForm(); }
+      catch(err){ alertMsg(String(err.message || err)); }
+    } });
+    const chk = (label, val, set) => el('label', { class:'check' }, el('input', { type:'checkbox', checked: val, onchange: e => { set(e.target.checked); markDirty(); } }), el('span', { text: label }));
+    const color = (label, key) => el('label', {}, el('input', { type:'color', value: ds[key], oninput: e => { ds[key] = e.target.value; markDirty(); } }), label);
+
+    formEl.replaceChildren(
+      el('section', { class:'a-sec' }, el('h2', { text:'Texte' }),
+        el('div', { class:'two' }, field('Name im Logo-Bereich (Schriftzug, wenn kein Logo hochgeladen ist)', txt(d.event, v => d.event = v)), field('Titel', txt(d.title, v => d.title = v))),
+        field('Einladungstext am Terminal', area(d.intro, v => d.intro = v)),
+        el('div', { class:'two' }, field('Text am Sticker-Rand', txt(d.cta, v => d.cta = v)), field('Text im Sticker', txt(d.stickerText, v => d.stickerText = v)))),
+      el('section', { class:'a-sec' }, el('h2', { text:'Fragen' }),
+        el('p', { class:'muted', text:'Werden Fragen oder Antworten hinzugefügt oder entfernt, startet beim Speichern eine neue Runde. Reine Textkorrekturen behalten die Ergebnisse.' }), qBox),
+      el('section', { class:'a-sec' }, el('h2', { text:'Zukunftstypen' }),
+        el('p', { class:'muted', text:'Jede Antwort, die zum Idealprofil eines Typs passt, gibt einen Punkt, die Leitfrage (*) 1,5 Punkte. Es gewinnt der Typ mit den meisten Punkten, bei Gleichstand der weiter oben stehende Typ.' }), tBox),
+      el('section', { class:'a-sec' }, el('h2', { text:'E-Mail für die Ergebnisse' }),
+        chk('E-Mail-Eingabe auf dem Ergebnis-Screen anbieten', m.enabled, v => m.enabled = v),
+        field('Überschrift', txt(m.title, v => m.title = v)),
+        field('Text', area(m.text, v => m.text = v)),
+        field('Button', txt(m.button, v => m.button = v)),
+        field('Hinweis mit Sternchen', area(m.note, v => m.note = v)),
+        chk('Zusätzlich eine Checkbox für weitere Infos anzeigen', m.checkbox, v => m.checkbox = v),
+        field('Text der Checkbox', txt(m.checkboxText, v => m.checkboxText = v)),
+        el('p', { class:'muted', text:'Adressen werden mit den Antworten der Person gespeichert und sind nur für Personen mit Bearbeitungsrechten lesbar. Das Terminal muss dafür mit einem Konto mit Bearbeitungsrechten angemeldet sein.' }),
+        field('Optional: Link zum Newsletter (erscheint als QR-Code)', el('input', { type:'url', value: d.newsletter.url, placeholder:'https://…', oninput: e => { d.newsletter.url = e.target.value.trim(); markDirty(); } }))),
+      el('section', { class:'a-sec' }, el('h2', { text:'Ablauf' }),
+        el('div', { class:'two' },
+          field('Terminal: Zurücksetzen bei Inaktivität während der Fragen (Sekunden)', numIn(d.timing.idleSeconds, 15, 600, v => d.timing.idleSeconds = v)),
+          field('Terminal: Zurücksetzen bei Inaktivität auf dem Ergebnis-Screen (Sekunden)', numIn(d.timing.resultIdleSeconds, 20, 900, v => d.timing.resultIdleSeconds = v)),
+          field('Großer Screen: Dauer der Übersicht (Sekunden)', numIn(d.timing.overviewSeconds, 4, 120, v => d.timing.overviewSeconds = v)),
+          field('Großer Screen: Dauer je Zukunftstyp (Sekunden)', numIn(d.timing.spotlightSeconds, 3, 60, v => d.timing.spotlightSeconds = v)))),
+      el('section', { class:'a-sec' }, el('h2', { text:'Design' }),
+        el('div', { class:'colors' }, color('Hintergrund', 'bg'), color('Schrift', 'ink'), color('Blau', 'blue'), color('Rosa', 'pink'), color('Orange', 'orange'), color('Grün', 'green'), color('Hellblau', 'sky')),
+        el('div', { style:'margin-top:18px' },
+          ds.logo ? el('div', {}, el('div', { class:'logo-prev' }, el('img', { src: ds.logo, alt:'Logo' })), el('div', {}, el('button', { class:'btn-ghost sm danger', onclick: () => { ds.logo = ''; markDirty(); drawForm(); } }, 'Logo entfernen'))) : null,
+          field('Logo hochladen (PNG, SVG, JPG – wird verkleinert)', logoInput)))
+    );
+  }
+  function readLogo(file){
+    return new Promise((res, rej) => {
+      const fr = new FileReader();
+      fr.onerror = () => rej(new Error('Datei konnte nicht gelesen werden.'));
+      fr.onload = () => {
+        const img = new Image();
+        img.onerror = () => rej(new Error('Bild konnte nicht geladen werden.'));
+        img.onload = () => {
+          const s = Math.min(1, 640 / (img.naturalWidth || 640), 200 / (img.naturalHeight || 200));
+          const cv = document.createElement('canvas');
+          cv.width = Math.max(1, Math.round((img.naturalWidth || 640) * s)); cv.height = Math.max(1, Math.round((img.naturalHeight || 200) * s));
+          cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+          const url = cv.toDataURL('image/png');
+          if(url.length > 200000) rej(new Error('Das Logo ist zu groß. Bitte eine kleinere Datei verwenden.')); else res(url);
+        };
+        img.src = fr.result;
+      };
+      fr.readAsDataURL(file);
+    });
+  }
+  function alertMsg(t){ if(saveMsg) saveMsg.textContent = t; }
+  function validate(c){
+    const errs = [];
+    c.questions.forEach((q, i) => {
+      if(!q.text.trim()) errs.push('Frage ' + (i+1) + ' hat keinen Text.');
+      q.options.forEach((o, oi) => { if(!o.text.trim()) errs.push('Frage ' + (i+1) + ', Antwort ' + LETTERS[oi] + ' ist leer.'); });
+    });
+    c.types.forEach(t => t.pattern.forEach(([q,o]) => { if(!c.questions[q] || !c.questions[q].options[o]) errs.push('Typ „' + t.name + '“ verweist auf ' + (q+1) + (LETTERS[o] || '?') + ', das es nicht gibt.'); }));
+    return errs;
+  }
+  async function save(){
+    if(!db){ alertMsg('Keine Datenbankverbindung.'); return; }
+    const c = clone(draft);
+    c.questions.forEach(q => { q.short = q.short.trim() || q.text; q.options.forEach(o => { o.short = o.short.trim() || o.text; }); });
+    const errs = validate(c);
+    if(errs.length){ alertMsg(errs.slice(0,3).join(' ')); return; }
+    const out = normalize(c);
+    const struct = structSig(out) !== structSig(config);
+    if(struct && aggregate().n > 0 && !pendingStructConfirm){
+      pendingStructConfirm = true;
+      alertMsg('Die Struktur der Fragen hat sich geändert. Beim Speichern startet eine neue Runde, der Screen beginnt bei null. Zum Bestätigen noch einmal speichern.');
+      saveBtn.textContent = 'Speichern und neue Runde starten';
+      return;
+    }
+    if(struct){
+      out.history = (config.history || []).concat([{ round: config.round, started: config.roundStarted || 0, ended: Date.now() }]).slice(-20);
+      out.round = newRoundId(); out.roundStarted = Date.now();
+    } else { out.round = config.round; out.roundStarted = config.roundStarted; out.history = config.history; }
+    saveBtn.disabled = true;
+    try{
+      await db.doc('config/survey').set(out);
+      dirty = false; pendingStructConfirm = false; saveBtn.textContent = 'Änderungen speichern';
+      alertMsg('Gespeichert. Terminals und Screen übernehmen die Änderungen automatisch.');
+    }catch(e){ alertMsg('Speichern fehlgeschlagen' + (e && e.code === 'invalid_argument' ? ': Dieses Konto hat keine Bearbeitungsrechte.' : '.')); }
+    finally{ saveBtn.disabled = false; }
+  }
+  const runBtn = (label, fn) => el('button', { class:'btn-secondary', onclick: async e => { const b = e.currentTarget; b.disabled = true; try{ alertMsg(await fn()); }catch(err){ alertMsg('Export fehlgeschlagen.'); } b.disabled = false; } }, label);
+  function draw(){
+    const exportSel = el('select', { 'aria-label':'Runde für den Export', style:'width:auto' },
+      el('option', { value: config.round }, 'Aktuelle Runde'),
+      (config.history || []).slice().reverse().map(h => el('option', { value: h.round }, 'Runde bis ' + new Date(h.ended).toLocaleString('de-DE'))));
+    liveEl = el('section', { class:'a-sec' });
+    formEl = el('div', {});
+    saveMsg = el('span', { class:'msg', 'aria-live':'polite' });
+    saveBtn = el('button', { class:'btn-primary', style:'padding:12px 30px;font-size:19px', onclick: save }, 'Änderungen speichern');
+    page.replaceChildren(...[
+      el('div', { class:'a-head' }, brand(), el('button', { class:'btn-ghost', onclick: () => setMode(null) }, 'Gerätemodus wechseln')),
+      el('h2', { class:'hl row a-title' }, el('span', { class:'hl-w c-blue', style:'--r:-1.5deg' }, 'Admin')),
+      dbState === 'none' ? el('div', { class:'a-warn', text:'Keine Datenbankverbindung. Bitte im Browser bei claude.ai anmelden. Ohne Datenbank kann hier nichts gespeichert oder exportiert werden.' }) : null,
+      canAdmin === false ? el('div', { class:'a-warn', text:'Dieses Konto hat keine Bearbeitungsrechte. Einstellungen lassen sich nicht speichern.' }) : null,
+      liveEl,
+      el('section', { class:'a-sec' }, el('h2', { text:'Ergebnisse' }),
+        el('div', { class:'a-actions' },
+          el('span', { class:'confirm' }, exportSel, runBtn('Antworten als CSV exportieren', () => exportRound(exportSel.value))),
+          confirmButton('Ergebnisse zurücksetzen', 'Neue Runde starten? Der Screen beginnt wieder bei null. Die bisherigen Antworten bleiben exportierbar.', startNewRound),
+          confirmButton('50 Testteilnahmen erzeugen', 'Testdaten in die aktuelle Runde schreiben? Sie erscheinen auf dem Screen, bis du die Ergebnisse zurücksetzt.', makeTestData))),
+      el('section', { class:'a-sec' }, el('h2', { text:'E-Mail-Kontakte' }),
+        el('p', { class:'muted', text:'Pro Kontakt: E-Mail, Zukunftstyp, die eigenen Antworten und der Anteil der Teilnehmenden mit derselben Antwort. Damit lässt sich der Versand nach der Veranstaltung als Serienmail aufsetzen.' }),
+        el('div', { class:'a-actions' },
+          runBtn('Kontakte mit Ergebnissen exportieren', exportContacts),
+          confirmButton('Kontakte löschen', 'Alle gespeicherten E-Mail-Kontakte endgültig löschen? Vorher exportieren.', s => deleteColl('contacts', s), 'btn-ghost danger'))),
+      formEl,
+      el('div', { class:'savebar' }, saveMsg, saveBtn)
+    ].filter(Boolean));
+    drawLive(); drawForm();
+  }
+  draw();
+  const liveTimer = setInterval(drawLive, 15000);
+  return {
+    onDb(){ subscribeTallies(); if(!dirty){ draft = clone(config); } draw(); },
+    onConfig(){ subscribeTallies(); if(!dirty){ draft = clone(config); draw(); } else { drawLive(); alertMsg('Die Einstellungen wurden auf einem anderen Gerät geändert. Speichern überschreibt diese Änderungen.'); } },
+    onTallies: drawLive,
+    destroy(){ clearInterval(liveTimer); wrap.remove(); }
+  };
+}
+
+/* ================= Steuerung ================= */
+const app = $('#app');
+async function keepAwake(){
+  if(!('wakeLock' in navigator) || (mode !== 'terminal' && mode !== 'screen')) return;
+  try{ await navigator.wakeLock.request('screen'); }catch(e){}
+}
+document.addEventListener('visibilitychange', () => { if(!document.hidden) keepAwake(); });
+function mount(){
+  if(view && view.destroy) view.destroy();
+  view = null; app.replaceChildren();
+  if(mode === 'terminal') view = TerminalView(app);
+  else if(mode === 'screen') view = ScreenView(app);
+  else if(mode === 'admin') view = AdminView(app);
+  else view = PickerView(app);
+  keepAwake();
+}
+function setMode(m){
+  mode = m;
+  if(m) LS.set('wgdz.mode', m); else { try{ localStorage.removeItem('wgdz.mode'); }catch(e){} }
+  mount();
+}
+(function(){
+  let taps = [];
+  $('#corner').addEventListener('pointerdown', () => {
+    const now = Date.now(); taps = taps.filter(t => now - t < 2500); taps.push(now);
+    if(taps.length >= 5){ taps = []; setMode(null); }
+  });
+})();
+
+applyDesign();
+mount();
+
+use('user').then(async u => {
+  user = u;
+  if(u){ try{ canAdmin = (await u.canEdit()) || (await u.isOwner()); }catch(e){ canAdmin = null; } }
+  if(view && view.onDb) view.onDb();
+});
+use('downloads').then(d => { downloads = d; });
+use('db').then(d => {
+  db = d; dbState = d ? 'ready' : 'none';
+  if(d){
+    try{
+      d.doc('config/survey').onSnapshot(s => {
+        config = normalize(s.exists ? s.data() : null);
+        applyDesign();
+        if(view && view.onConfig) view.onConfig();
+      }, () => {});
+    }catch(e){}
+  }
+  if(view && view.onDb) view.onDb();
+  updateDot();
+});
+})();
+</script>
+</body>
+</html>
