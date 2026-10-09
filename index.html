@@ -203,6 +203,11 @@ table.a-tab{width:100%;border-collapse:collapse;margin-top:14px;font-size:16px}
 .field>span{font-size:14px;font-weight:600;color:var(--muted)}
 .admin input[type=text],.admin input[type=url],.admin input[type=number],.admin textarea,.admin select{width:100%;font:inherit;font-size:16px;padding:10px 12px;border:2px solid var(--ink);background:#fff;color:var(--ink);border-radius:0}
 .admin textarea{min-height:64px;resize:vertical}
+.login{max-width:440px}
+.login .field{margin-bottom:18px}
+.login input{width:100%;font:inherit;font-size:16px;padding:10px 12px;border:2px solid var(--ink);background:#fff;color:var(--ink);border-radius:0}
+.login button{margin-top:6px}
+.login .msg{margin:14px 0 0;color:#C2271D}
 .admin input[type=color]{width:56px;height:40px;border:0;background:none;padding:0}
 .qcard{border:2px solid rgba(28,28,28,.25);padding:18px 18px 8px;margin:0 0 16px}
 .qcard legend{padding:0 8px;font-weight:800}
@@ -1167,7 +1172,7 @@ function AdminView(root){
       page.replaceChildren(
         el('div', { class:'a-head' }, brand(), el('button', { class:'btn-ghost', onclick: () => setMode(null) }, 'Gerätemodus wechseln')),
         el('h2', { class:'hl row a-title' }, el('span', { class:'hl-w c-blue', style:'--r:-1.5deg' }, 'Admin')),
-        el('section', { class:'a-sec' }, el('h2', { text:'Anmelden' }), em, pw, el('button', { class:'btn-primary', onclick: go }, 'Anmelden'), msg));
+        el('section', { class:'a-sec login' }, el('h2', { text:'Anmelden' }), field('E-Mail', em), field('Passwort', pw), el('button', { class:'btn-primary', style:'padding:12px 30px;font-size:19px', onclick: go }, 'Anmelden'), msg));
       return;
     }
     page.replaceChildren(...[
